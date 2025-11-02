@@ -1,8 +1,14 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Reservation, ReservationStatus } from "@/types/reservation";
-import { mockReservations, mockTables } from "@/data/mockData";
+import {
+  useReservations,
+  useCreateReservation,
+  useUpdateReservation,
+  useUpdateReservationStatus,
+} from "@/hooks/useReservations";
+import { useTables } from "@/hooks/useTables";
 import { ReservationCard } from "@/components/ReservationCard";
 import { ReservationDialog } from "@/components/ReservationDialog";
 import { TableGrid } from "@/components/TableGrid";
@@ -11,54 +17,55 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Plus, Calendar, LayoutGrid, User, BarChart3 } from "lucide-react";
-import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Index = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [reservations, setReservations] = useState<Reservation[]>(mockReservations);
+  const { data: reservations = [], isLoading: isLoadingReservations } = useReservations();
+  const { data: tables = [], isLoading: isLoadingTables } = useTables();
+  const createReservation = useCreateReservation();
+  const updateReservation = useUpdateReservation();
+  const updateStatus = useUpdateReservationStatus();
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingReservation, setEditingReservation] = useState<Reservation | undefined>();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ReservationStatus | "all">("all");
   const [dateFilter, setDateFilter] = useState("");
 
-  const filteredReservations = reservations.filter((reservation) => {
-    const matchesSearch =
-      reservation.guestName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      reservation.guestPhone.includes(searchQuery) ||
-      reservation.guestEmail.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredReservations = useMemo(() => {
+    return reservations.filter((reservation) => {
+      const matchesSearch =
+        reservation.guestName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        reservation.guestPhone.includes(searchQuery) ||
+        reservation.guestEmail.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesStatus = statusFilter === "all" || reservation.status === statusFilter;
+      const matchesStatus = statusFilter === "all" || reservation.status === statusFilter;
 
-    const matchesDate = !dateFilter || reservation.date === dateFilter;
+      const matchesDate = !dateFilter || reservation.date === dateFilter;
 
-    // Если пользователь не администратор, показываем только его бронирования
-    const matchesUser = !user || user.role === "admin" || reservation.userId === user.id;
+      const matchesUser = !user || user.role === "admin" || reservation.userId === user.id;
 
-    return matchesSearch && matchesStatus && matchesDate && matchesUser;
-  });
+      return matchesSearch && matchesStatus && matchesDate && matchesUser;
+    });
+  }, [reservations, searchQuery, statusFilter, dateFilter, user]);
 
   const handleSave = (newReservation: Partial<Reservation>) => {
     if (editingReservation) {
-      setReservations((prev) =>
-        prev.map((r) =>
-          r.id === editingReservation.id ? { ...r, ...newReservation } : r
-        )
-      );
-      toast.success("Бронювання оновлено");
+      updateReservation.mutate({
+        id: editingReservation.id,
+        updates: newReservation,
+      });
     } else {
-      setReservations((prev) => [
-        { 
-          ...newReservation, 
-          id: `r${Date.now()}`,
-          userId: user?.id || "guest"
-        } as Reservation,
-        ...prev,
-      ]);
-      toast.success("Бронювання створено");
+      createReservation.mutate({
+        ...newReservation,
+        userId: user?.id || "guest",
+        status: "pending",
+      } as Omit<Reservation, "id" | "createdAt">);
     }
     setEditingReservation(undefined);
+    setDialogOpen(false);
   };
 
   const handleEdit = (reservation: Reservation) => {
@@ -67,17 +74,11 @@ const Index = () => {
   };
 
   const handleDelete = (id: string) => {
-    setReservations((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: "cancelled" as const } : r))
-    );
-    toast.success("Бронювання скасовано");
+    updateStatus.mutate({ id, status: "cancelled" });
   };
 
   const handleStatusChange = (id: string, status: ReservationStatus) => {
-    setReservations((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status } : r))
-    );
-    toast.success("Статус оновлено");
+    updateStatus.mutate({ id, status });
   };
 
   const handleNewReservation = () => {
@@ -152,30 +153,46 @@ const Index = () => {
               onDateFilterChange={setDateFilter}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredReservations.length > 0 ? (
-                filteredReservations.map((reservation) => (
-                  <ReservationCard
-                    key={reservation.id}
-                    reservation={reservation}
-                    isAdmin={user?.role === "admin"}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onStatusChange={handleStatusChange}
-                  />
-                ))
-              ) : (
-                <div className="col-span-full text-center py-12">
-                  <p className="text-muted-foreground text-lg">
-                    Бронювань не знайдено
-                  </p>
-                </div>
-              )}
-            </div>
+            {isLoadingReservations ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-64 w-full" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredReservations.length > 0 ? (
+                  filteredReservations.map((reservation) => (
+                    <ReservationCard
+                      key={reservation.id}
+                      reservation={reservation}
+                      isAdmin={user?.role === "admin"}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      onStatusChange={handleStatusChange}
+                    />
+                  ))
+                ) : (
+                  <div className="col-span-full text-center py-12">
+                    <p className="text-muted-foreground text-lg">
+                      Бронювань не знайдено
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="tables">
-            <TableGrid tables={mockTables} />
+            {isLoadingTables ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <Skeleton key={i} className="h-32 w-full" />
+                ))}
+              </div>
+            ) : (
+              <TableGrid tables={tables} />
+            )}
           </TabsContent>
         </Tabs>
       </div>

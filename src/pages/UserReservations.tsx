@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { mockReservations } from "@/data/mockData";
+import { useUserReservations } from "@/hooks/useReservations";
 import { Reservation } from "@/types/reservation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Calendar, Clock, Users, MapPin, CheckCircle2, XCircle, Clock as ClockIcon } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
 import { format } from "date-fns";
@@ -14,26 +15,24 @@ import { uk } from "date-fns/locale";
 const UserReservations = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [userReservations, setUserReservations] = useState<Reservation[]>([]);
-
-  useEffect(() => {
-    if (user) {
-      // Фільтруємо бронювання поточного користувача
-      const filtered = mockReservations.filter((r) => r.userId === user.id);
-      setUserReservations(filtered);
-    }
-  }, [user]);
+  const { data: userReservations = [], isLoading } = useUserReservations(user?.id || "");
 
   if (!user) {
-    navigate("/auth");
     return null;
   }
 
-  const activeReservations = userReservations.filter(
-    (r) => r.status === "confirmed" || r.status === "pending"
+  const activeReservations = useMemo(
+    () => userReservations.filter((r) => r.status === "confirmed" || r.status === "pending"),
+    [userReservations]
   );
-  const completedReservations = userReservations.filter((r) => r.status === "completed");
-  const cancelledReservations = userReservations.filter((r) => r.status === "cancelled");
+  const completedReservations = useMemo(
+    () => userReservations.filter((r) => r.status === "completed"),
+    [userReservations]
+  );
+  const cancelledReservations = useMemo(
+    () => userReservations.filter((r) => r.status === "cancelled"),
+    [userReservations]
+  );
 
   const ReservationList = ({ reservations }: { reservations: Reservation[] }) => {
     if (reservations.length === 0) {
@@ -119,6 +118,14 @@ const UserReservations = () => {
 
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
+          {isLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-32 w-full" />
+              <Skeleton className="h-32 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+          ) : (
+            <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <Card>
               <CardHeader className="pb-3">
@@ -185,6 +192,8 @@ const UserReservations = () => {
               <ReservationList reservations={cancelledReservations} />
             </TabsContent>
           </Tabs>
+            </>
+          )}
         </div>
       </div>
     </div>

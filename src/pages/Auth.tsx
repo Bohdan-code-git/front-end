@@ -1,56 +1,83 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/contexts/AuthContext";
+import { loginSchema, registerSchema, LoginFormData, RegisterFormData } from "@/schemas/authSchema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { toast } from "sonner";
 import { UtensilsCrossed } from "lucide-react";
 
 const Auth = () => {
   const navigate = useNavigate();
   const { login, register } = useAuth();
-  
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-  const [registerEmail, setRegisterEmail] = useState("");
-  const [registerPassword, setRegisterPassword] = useState("");
-  const [registerName, setRegisterName] = useState("");
-  const [registerPhone, setRegisterPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const loginForm = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  const registerForm = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      password: "",
+    },
+  });
+
+  const handleLogin = async (data: LoginFormData) => {
     setIsLoading(true);
     
-    const success = await login(loginEmail, loginPassword);
-    
-    if (success) {
-      toast.success("Успішний вхід!");
-      navigate("/");
-    } else {
-      toast.error("Невірний email або пароль");
+    try {
+      const success = await login(data.email, data.password);
+      
+      if (success) {
+        toast.success("Успішний вхід!");
+        navigate("/");
+      } else {
+        toast.error("Невірний email або пароль");
+      }
+    } catch (error) {
+      toast.error("Помилка входу");
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleRegister = async (data: RegisterFormData) => {
     setIsLoading(true);
     
-    const success = await register(registerEmail, registerPassword, registerName, registerPhone);
-    
-    if (success) {
-      toast.success("Реєстрація успішна!");
-      navigate("/");
-    } else {
+    try {
+      const success = await register(data.email, data.password, data.name, data.phone);
+      
+      if (success) {
+        toast.success("Реєстрація успішна!");
+        navigate("/");
+      } else {
+        toast.error("Помилка реєстрації");
+      }
+    } catch (error) {
       toast.error("Помилка реєстрації");
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   return (
@@ -73,91 +100,106 @@ const Auth = () => {
             </TabsList>
             
             <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="admin@restaurant.com"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    required
+              <Form {...loginForm}>
+                <form onSubmit={loginForm.handleSubmit(handleLogin)} className="space-y-4">
+                  <FormField
+                    control={loginForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="admin@restaurant.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Пароль</Label>
-                  <Input
-                    id="login-password"
-                    type="password"
-                    placeholder="password123"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    required
+                  <FormField
+                    control={loginForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Пароль</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="password123" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-                <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-md">
-                  <p className="font-medium mb-1">Тестові дані для входу:</p>
-                  <p>Email: admin@restaurant.com</p>
-                  <p>Пароль: password123</p>
-                </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Завантаження..." : "Увійти"}
-                </Button>
-              </form>
+                  <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-md">
+                    <p className="font-medium mb-1">Тестові дані для входу:</p>
+                    <p>Email: admin@restaurant.com</p>
+                    <p>Пароль: password123</p>
+                  </div>
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? "Завантаження..." : "Увійти"}
+                  </Button>
+                </form>
+              </Form>
             </TabsContent>
             
             <TabsContent value="register">
-              <form onSubmit={handleRegister} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="register-name">Ім'я</Label>
-                  <Input
-                    id="register-name"
-                    type="text"
-                    placeholder="Іван Іванов"
-                    value={registerName}
-                    onChange={(e) => setRegisterName(e.target.value)}
-                    required
+              <Form {...registerForm}>
+                <form onSubmit={registerForm.handleSubmit(handleRegister)} className="space-y-4">
+                  <FormField
+                    control={registerForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Ім'я</FormLabel>
+                        <FormControl>
+                          <Input type="text" placeholder="Іван Іванов" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-email">Email</Label>
-                  <Input
-                    id="register-email"
-                    type="email"
-                    placeholder="ivan@example.com"
-                    value={registerEmail}
-                    onChange={(e) => setRegisterEmail(e.target.value)}
-                    required
+                  <FormField
+                    control={registerForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="ivan@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-phone">Телефон</Label>
-                  <Input
-                    id="register-phone"
-                    type="tel"
-                    placeholder="+380 67 123 4567"
-                    value={registerPhone}
-                    onChange={(e) => setRegisterPhone(e.target.value)}
-                    required
+                  <FormField
+                    control={registerForm.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Телефон</FormLabel>
+                        <FormControl>
+                          <Input type="tel" placeholder="+380 67 123 4567" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-password">Пароль</Label>
-                  <Input
-                    id="register-password"
-                    type="password"
-                    placeholder="Мінімум 6 символів"
-                    value={registerPassword}
-                    onChange={(e) => setRegisterPassword(e.target.value)}
-                    required
-                    minLength={6}
+                  <FormField
+                    control={registerForm.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Пароль</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="Мінімум 6 символів" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Завантаження..." : "Зареєструватися"}
-                </Button>
-              </form>
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? "Завантаження..." : "Зареєструватися"}
+                  </Button>
+                </form>
+              </Form>
             </TabsContent>
           </Tabs>
         </CardContent>
