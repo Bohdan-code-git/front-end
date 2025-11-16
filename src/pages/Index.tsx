@@ -58,11 +58,8 @@ const Index = () => {
         updates: newReservation,
       });
     } else {
-      createReservation.mutate({
-        ...newReservation,
-        userId: user?.id || "guest",
-        status: "pending",
-      } as Omit<Reservation, "id" | "createdAt">);
+      const { userId, status, id, createdAt, ...reservationData } = newReservation;
+      createReservation.mutate(reservationData as Omit<Reservation, "id" | "userId" | "status" | "createdAt">);
     }
     setEditingReservation(undefined);
     setDialogOpen(false);

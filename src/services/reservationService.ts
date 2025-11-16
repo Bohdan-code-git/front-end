@@ -1,60 +1,54 @@
 import { Reservation, ReservationStatus } from "@/types/reservation";
-import { mockReservations } from "@/data/mockData";
+import { apiClient } from "@/lib/api";
 
-// Simulate API delay
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+interface GetReservationsParams {
+  status?: ReservationStatus;
+  date?: string;
+  search?: string;
+}
 
 class ReservationService {
-  private reservations: Reservation[] = [...mockReservations];
+  async getAllReservations(params?: GetReservationsParams): Promise<Reservation[]> {
+    const queryParams: Record<string, string> = {};
+    if (params?.status) queryParams.status = params.status;
+    if (params?.date) queryParams.date = params.date;
+    if (params?.search) queryParams.search = params.search;
 
-  async getAllReservations(): Promise<Reservation[]> {
-    await delay(300);
-    return [...this.reservations];
+    return apiClient.get<Reservation[]>("/reservations", queryParams);
   }
 
   async getReservationById(id: string): Promise<Reservation | null> {
-    await delay(200);
-    const reservation = this.reservations.find((r) => r.id === id);
-    return reservation ? { ...reservation } : null;
+    try {
+      return await apiClient.get<Reservation>(`/reservations/${id}`);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("404")) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   async getUserReservations(userId: string): Promise<Reservation[]> {
-    await delay(300);
-    return this.reservations.filter((r) => r.userId === userId);
+    return apiClient.get<Reservation[]>(`/reservations/user/${userId}`);
   }
 
-  async createReservation(reservation: Omit<Reservation, "id" | "createdAt">): Promise<Reservation> {
-    await delay(400);
-    const newReservation: Reservation = {
-      ...reservation,
-      id: `r${Date.now()}`,
-      createdAt: new Date().toISOString(),
-    };
-    this.reservations.unshift(newReservation);
-    return { ...newReservation };
+  async createReservation(
+    reservation: Omit<Reservation, "id" | "userId" | "status" | "createdAt">
+  ): Promise<Reservation> {
+    return apiClient.post<Reservation>("/reservations", reservation);
   }
 
   async updateReservation(id: string, updates: Partial<Reservation>): Promise<Reservation> {
-    await delay(400);
-    const index = this.reservations.findIndex((r) => r.id === id);
-    if (index === -1) {
-      throw new Error(`Reservation with id ${id} not found`);
-    }
-    this.reservations[index] = { ...this.reservations[index], ...updates };
-    return { ...this.reservations[index] };
+    const { id: _, userId, status, createdAt, ...updateData } = updates;
+    return apiClient.patch<Reservation>(`/reservations/${id}`, updateData);
   }
 
   async deleteReservation(id: string): Promise<void> {
-    await delay(300);
-    const index = this.reservations.findIndex((r) => r.id === id);
-    if (index === -1) {
-      throw new Error(`Reservation with id ${id} not found`);
-    }
-    this.reservations.splice(index, 1);
+    await apiClient.delete(`/reservations/${id}`);
   }
 
   async updateReservationStatus(id: string, status: ReservationStatus): Promise<Reservation> {
-    return this.updateReservation(id, { status });
+    return apiClient.patch<Reservation>(`/reservations/${id}/status`, { status });
   }
 }
 

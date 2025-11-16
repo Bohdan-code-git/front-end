@@ -1,12 +1,17 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { User } from "@/types/user";
-import { mockUsers } from "@/data/mockUsers";
+import { apiClient } from "@/lib/api";
+
+interface AuthResponse {
+  user: User;
+  token: string;
+}
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, password: string, name: string, phone: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -25,23 +30,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("currentUser");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    const loadUser = async () => {
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          const currentUser = await apiClient.get<User>("/auth/me");
+          setUser(currentUser);
+        } catch (error) {
+          apiClient.clearAuthToken();
+          localStorage.removeItem("currentUser");
+        }
+      }
+      setIsLoading(false);
+    };
+
+    loadUser();
+
+    const handleUnauthorized = () => {
+      setUser(null);
+      apiClient.clearAuthToken();
+      localStorage.removeItem("currentUser");
+    };
+
+    window.addEventListener("auth:unauthorized", handleUnauthorized);
+
+    return () => {
+      window.removeEventListener("auth:unauthorized", handleUnauthorized);
+    };
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Mock login - перевіряємо email та пароль
-    const foundUser = mockUsers.find((u) => u.email === email);
-    
-    if (foundUser && password === "password123") {
-      setUser(foundUser);
-      localStorage.setItem("currentUser", JSON.stringify(foundUser));
+    try {
+      const response = await apiClient.post<AuthResponse>("/auth/login", {
+        email,
+        password,
+      });
+
+      apiClient.setAuthToken(response.token);
+      setUser(response.user);
+      localStorage.setItem("currentUser", JSON.stringify(response.user));
       return true;
+    } catch (error) {
+      console.error("Login error:", error);
+      return false;
     }
-    return false;
   };
 
   const register = async (
@@ -50,24 +82,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     name: string,
     phone: string
   ): Promise<boolean> => {
-    // Mock registration
-    const newUser: User = {
-      id: `u${Date.now()}`,
-      email,
-      name,
-      phone,
-      role: "user",
-      createdAt: new Date().toISOString(),
-    };
-    
-    setUser(newUser);
-    localStorage.setItem("currentUser", JSON.stringify(newUser));
-    return true;
+    try {
+      const response = await apiClient.post<AuthResponse>("/auth/register", {
+        email,
+        password,
+        name,
+        phone,
+      });
+
+      apiClient.setAuthToken(response.token);
+      setUser(response.user);
+      localStorage.setItem("currentUser", JSON.stringify(response.user));
+      return true;
+    } catch (error) {
+      console.error("Registration error:", error);
+      return false;
+    }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("currentUser");
+  const logout = async (): Promise<void> => {
+    try {
+      await apiClient.post("/auth/logout");
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      setUser(null);
+      apiClient.clearAuthToken();
+      localStorage.removeItem("currentUser");
+    }
   };
 
   return (

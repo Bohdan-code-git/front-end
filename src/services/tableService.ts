@@ -1,36 +1,39 @@
 import { Table } from "@/types/reservation";
-import { mockTables } from "@/data/mockData";
+import { apiClient } from "@/lib/api";
 
-// Simulate API delay
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+interface GetAvailableTablesParams {
+  date?: string;
+  time?: string;
+  guests?: number;
+}
 
 class TableService {
-  private tables: Table[] = [...mockTables];
-
   async getAllTables(): Promise<Table[]> {
-    await delay(200);
-    return [...this.tables];
+    return apiClient.get<Table[]>("/tables");
   }
 
   async getTableById(id: string): Promise<Table | null> {
-    await delay(150);
-    const table = this.tables.find((t) => t.id === id);
-    return table ? { ...table } : null;
+    try {
+      return await apiClient.get<Table>(`/tables/${id}`);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("404")) {
+        return null;
+      }
+      throw error;
+    }
   }
 
-  async getAvailableTables(): Promise<Table[]> {
-    await delay(200);
-    return this.tables.filter((t) => t.isAvailable);
+  async getAvailableTables(params?: GetAvailableTablesParams): Promise<Table[]> {
+    const queryParams: Record<string, string> = {};
+    if (params?.date) queryParams.date = params.date;
+    if (params?.time) queryParams.time = params.time;
+    if (params?.guests) queryParams.guests = params.guests.toString();
+
+    return apiClient.get<Table[]>("/tables/available", queryParams);
   }
 
   async updateTableAvailability(id: string, isAvailable: boolean): Promise<Table> {
-    await delay(300);
-    const index = this.tables.findIndex((t) => t.id === id);
-    if (index === -1) {
-      throw new Error(`Table with id ${id} not found`);
-    }
-    this.tables[index] = { ...this.tables[index], isAvailable };
-    return { ...this.tables[index] };
+    return apiClient.patch<Table>(`/tables/${id}/availability`, { isAvailable });
   }
 }
 

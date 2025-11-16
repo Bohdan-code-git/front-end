@@ -30,7 +30,7 @@ export const useCreateReservation = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (reservation: Omit<Reservation, "id" | "createdAt">) =>
+    mutationFn: (reservation: Omit<Reservation, "id" | "userId" | "status" | "createdAt">) =>
       reservationService.createReservation(reservation),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["reservations"] });

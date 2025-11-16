@@ -11,8 +11,8 @@ const Profile = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     toast.success("Ви вийшли з системи");
     navigate("/auth");
   };
