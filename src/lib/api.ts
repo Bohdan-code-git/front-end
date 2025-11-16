@@ -1,4 +1,3 @@
-// Базовый API клиент для работы с бэкендом
 
 const API_BASE_URL = "http://127.0.0.1:8081/api/v1";
 
@@ -50,47 +49,37 @@ class ApiClient {
     try {
       const response = await fetch(url, config);
 
-      // Обработка пустого ответа (например, для DELETE запросов)
       if (response.status === 204) {
         return {} as T;
       }
 
-      // Пытаемся получить текст ответа
       const text = await response.text();
       
-      // Если ответ пустой, возвращаем пустой объект
       if (!text) {
         if (response.ok) {
           return {} as T;
         }
-        // Если ответ не OK и пустой, выбрасываем ошибку
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Парсим JSON
       let data: unknown;
       try {
         data = JSON.parse(text);
       } catch {
-        // Если не JSON и ответ не OK, выбрасываем ошибку
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        // Если ответ OK, но не JSON, возвращаем пустой объект
         return {} as T;
       }
 
-      // Обработка 401 Unauthorized - очищаем токен и перенаправляем на страницу входа
       if (response.status === 401) {
         this.clearAuthToken();
         localStorage.removeItem("currentUser");
-        // Вызываем событие для уведомления приложения об ошибке авторизации
         window.dispatchEvent(new CustomEvent("auth:unauthorized"));
         const error: ApiError = data as ApiError;
         throw new Error(error.error || "Unauthorized");
       }
 
-      // Проверяем статус ответа
       if (!response.ok) {
         const error: ApiError = data as ApiError;
         throw new Error(error.error || `HTTP error! status: ${response.status}`);
@@ -132,7 +121,6 @@ class ApiClient {
     return this.request<T>(endpoint, { method: "DELETE" });
   }
 
-  // Методы для работы с токенами
   setAuthToken(token: string): void {
     this.setToken(token);
   }
