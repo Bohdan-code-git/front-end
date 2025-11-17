@@ -107,6 +107,17 @@ export const ReservationCard = ({
               Скасувати
             </Button>
           )}
+
+            {isAdmin && reservation.status === "confirmed" && onStatusChange && (
+                <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => onStatusChange(reservation.id, "completed")}
+                    className="flex-1"
+                >
+                    Завершити
+                </Button>
+            )}
         </div>
       </CardContent>
     </Card>
