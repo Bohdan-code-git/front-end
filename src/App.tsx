@@ -11,6 +11,7 @@ import Profile from "./pages/Profile";
 import UserReservations from "./pages/UserReservations";
 import AdminReports from "./pages/AdminReports";
 import NotFound from "./pages/NotFound";
+import Reservation from "./pages/Reservation";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -56,7 +57,9 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route path="*" element={<NotFound />} />
+              <Route path='/reservations'
+                     element={<Reservation/>}/>
+              <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>

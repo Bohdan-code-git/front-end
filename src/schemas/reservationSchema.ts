@@ -6,7 +6,7 @@ export const reservationSchema = z.object({
     .string()
     .min(10, "Телефон повинен містити мінімум 10 символів")
     .regex(/^[\d\s\+\-\(\)]+$/, "Невірний формат телефону"),
-  guestEmail: z.string().email("Невірний формат email"),
+  guestEmail: z.string().email("Невірний формат email").optional().or(z.literal('')),
   date: z.string().min(1, "Оберіть дату"),
   time: z.string().min(1, "Оберіть час"),
   guests: z
