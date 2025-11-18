@@ -34,8 +34,8 @@ const Index = () => {
   const [statusFilter, setStatusFilter] = useState<ReservationStatus | "all">("all");
   const [dateFilter, setDateFilter] = useState("");
 
-  const filteredReservations = useMemo(() => {
-    return reservations.filter((reservation) => {
+    const filteredReservations = useMemo(() => {
+        return (reservations ?? []).filter((reservation) => {
       const matchesSearch =
         reservation.guestName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         reservation.guestPhone.includes(searchQuery) ||
