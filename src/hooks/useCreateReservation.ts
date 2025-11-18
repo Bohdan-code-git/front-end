@@ -1,28 +1,46 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { reservationService } from "@/services/reservationService";
-import { Reservation } from "@/types/reservation";
-import { ReservationFormData } from "@/schemas/reservationSchema";
+import { Reservation, ReservationFormData } from "@/types/reservation";
+
+// --- TEMPORARY MOCK IMPLEMENTATION ---
+const mockedCreateReservation = async (
+    data: ReservationFormData
+): Promise<Reservation> => {
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    return {
+        ...data,
+        id: `r${Date.now()}`,
+        userId: 'mock-user-id',
+        guestEmail: data.guestEmail || '', // Handle optional email field
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+    } as Reservation;
+};
+
 
 export const useCreateReservation = () => {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: (data: ReservationFormData) => {
-            const newReservation: Partial<Reservation> = {
+
+            const reservationData: Omit<Reservation, "id" | "userId" | "status" | "createdAt"> = {
                 ...data,
-                status: "pending",
-                createdAt: new Date().toISOString(),
+                guestEmail: data.guestEmail || '', // Ensure optional field is handled
             };
 
-            return reservationService.create(newReservation);
+            return mockedCreateReservation(reservationData);
+
+            // WHEN BACKEND IS READY
+            // return reservationService.createReservation(reservationData);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["reservations"] });
             queryClient.invalidateQueries({ queryKey: ["tables"] });
-            queryClient.invalidateQueries({ queryKey: ["tables", "available"] });
         },
         onError: (error) => {
             console.error("Reservation creation error:", error);
+            throw error;
         },
     });
 };
